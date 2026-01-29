@@ -1,0 +1,41 @@
+@startuml classes-3-cellobj
+!pragma useIntermediatePackages false
+
+abstract timestamper_gui.basis.CellObject {
+  {abstract} getDisplay() -> string
+  {abstract} getSortKey() -> sortable
+  {abstract} transferGet() -> timestruct
+  {abstract} transferSet(timestruct)
+}
+
+class timestamper_gui.basis.CellObjectDummy {
+  dispstring: string
+  sortkey: sortable
+
+  getDisplay() -> string
+  getSortKey() -> sortable
+  transferGet() -> always none
+  getDatafileString() -> always none
+  {abstract} setActionColour(colour)
+}
+
+note "No subclasses" as N1
+timestamper_gui.basis.CellObjectDummy .. N1
+
+abstract timestamper_gui.basis.CellObjectProxy {
+  {method} ...
+}
+note "6 SUBCLASSES" as N2
+timestamper_gui.basis.CellObjectProxy .. N2
+
+class timestamper_gui.basis.CellObjectStamp {
+  {method} ...
+}
+note "7 SUBCLASSES" as N3
+timestamper_gui.basis.CellObjectStamp .. N3
+
+timestamper_gui.basis.CellObject <|-- timestamper_gui.basis.CellObjectDummy
+timestamper_gui.basis.CellObject <|-- timestamper_gui.basis.CellObjectProxy
+timestamper_gui.basis.CellObject <|-- timestamper_gui.basis.CellObjectStamp
+
+@enduml

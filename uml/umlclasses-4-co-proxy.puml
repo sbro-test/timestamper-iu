@@ -1,0 +1,41 @@
+@startuml classes-4-co-proxy
+
+left to right direction
+
+abstract timestamper_gui.basis.CellObjectProxy {
+}
+
+class timestamper_gui.basis.CellObjectProxyStamp {
+  getDisplay(value) -> string
+  getSortKey(value) -> sortable
+  transferGet() -> always none
+}
+class timestamper_gui.basis.CellObjectProxyOutput {
+  getDisplay(value) -> string
+  getSortKey(value) -> sortable
+}
+class timestamper_gui.basis.CellObjectProxyBytes {
+  getDisplay(value) -> string
+  getSortKey(value) -> sortable
+}
+class timestamper_gui.basis.CellObjectProxyInt {
+  getDisplay(value) -> string
+  getSortKey(value) -> sortable
+}
+class timestamper_gui.basis.CellObjectProxyString {
+  getDisplay(value) -> string
+  getSortKey(value) -> sortable
+}
+class timestamper_gui.basis.CellObjectProxyMarker {
+  getDisplay(value) -> string
+  getSortKey(value) -> sortable
+}
+
+timestamper_gui.basis.CellObjectProxy <|-- timestamper_gui.basis.CellObjectProxyMarker
+timestamper_gui.basis.CellObjectProxy <|-- timestamper_gui.basis.CellObjectProxyString
+timestamper_gui.basis.CellObjectProxy <|-- timestamper_gui.basis.CellObjectProxyInt
+timestamper_gui.basis.CellObjectProxy <|-- timestamper_gui.basis.CellObjectProxyBytes
+timestamper_gui.basis.CellObjectProxy <|-- timestamper_gui.basis.CellObjectProxyOutput
+timestamper_gui.basis.CellObjectProxy <|-- timestamper_gui.basis.CellObjectProxyStamp
+
+@enduml

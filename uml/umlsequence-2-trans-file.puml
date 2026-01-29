@@ -1,0 +1,40 @@
+@startuml sequence-2-trans-file
+
+participant "gui:main"  as main
+participant "gui:table" as table
+
+participant "basis:dir"  as dir
+participant "basis:file" as file
+
+participant "basis:co-source" as source
+participant "basis:co-target" as target
+
+main -> table : ActionTransfer
+
+table -> table : DeleteOutputs
+
+table ->  dir : get_EntriesIterMarked\nor ...IterAll
+table <-- dir : iter over files
+
+loop files in iter
+  table -> file : ActionTransfer
+
+  file ->  source : transferGet
+  file <-- source : struct_time
+
+  file -> target : transferSet
+end
+
+table -> table : WriteMyFile
+table -> dir : writeMyFile
+
+loop all files
+  dir ->  file : getTs5DatafileStamp
+  file ->  target : getDatafileString
+  file <-- target : time string
+  dir <-- file : time string
+end
+
+main <- table : GotoDirMain
+
+@enduml

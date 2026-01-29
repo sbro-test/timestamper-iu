@@ -1,0 +1,32 @@
+@startuml sequence-1-trans-linux
+
+participant "gui:main"  as main
+participant "gui:table" as table
+
+participant "basis:dir"  as dir
+participant "basis:file" as file
+
+participant "basis:co-source" as source
+participant "basis:co-target\n(COLinux)" as target
+participant "basis:co-sub\n(COLocal)"    as local
+
+main -> table : ActionTransfer
+
+table -> table : DeleteOutputs
+
+table ->  dir : get_EntriesIterMarked\nor ...IterAll
+table <-- dir : iter over files
+
+loop files in iter
+  table -> file : ActionTransfer
+
+  file ->  source : transferGet
+  file <-- source : struct_time
+
+  file -> target : transferSet
+  target -> local : transferSet
+end
+
+main <- table : GotoDirMain
+
+@enduml

@@ -1,0 +1,83 @@
+@startuml classes-5-co-stamp
+
+left to right direction
+
+class timestamper_gui.basis.CellObjectStampDatafile {
+  __init__(time.struct_time)
+  getDatafileString() -> string
+  getDisplay() -> string
+  getSortKey() -> sortable
+  transferSet(time.struct_time)
+}
+
+class timestamper_gui.basis.CellObjectStampFname {
+  fname: string
+
+  __init__(string fname)
+  transferSet(time.struct_time)
+}
+
+class timestamper_gui.basis.CellObjectStampWin {
+  fsutc: bool
+  dstnow: bool
+  newwin: bool
+  cellobj_filesys: CellObjectStamp
+  cellobj_local: CellObjectStamp
+  dstforfile: bool
+
+  {static} MakeStampWinWrapper(...like init...) -> CellObjectStampWin
+  __init__(bool fsutc,bool dstnow, bool newwin, CellObjectStamp,CellObjectStamp)
+  crazy_windows_formula(time.struct_time,struct_time, int inversion) -> struct_time
+  transferSet(time.struct_time)
+}
+
+class timestamper_gui.basis.CellObjectStampLinux {
+  __init__(bool fsutc, CellObjectStamp cellobj_local)
+  linux_onwin_fat_formula(time.struct_time, bool inversion) -> time.struct_time
+  transferSet(time.struct_time)
+}
+
+class timestamper_gui.basis.CellObjectStampStat {
+  fullpath: string
+  statkey: string
+  --
+  __init__(string fullpath, string statkey, int statint)
+  transferSet(time.struct_time)
+  ..
+  {abstract} _int2struct(int) -> time.struct_time
+  {abstract} _struct2int(time.struct_time) -> int
+}
+class timestamper_gui.basis.CellObjectStampLocal {
+  _int2struct(int) -> time.struct_time
+  _struct2int(time.struct_time) -> int
+}
+class timestamper_gui.basis.CellObjectStampGmt {
+  _int2struct(int) -> time.struct_time
+  _struct2int(time.struct_time) -> int
+}
+
+class timestamper_gui.basis.CellObjectStamp {
+  my_structtime: time.struct_time
+  action_colour: Colour
+  
+  __init__()
+  getDisplay() -> string
+  getSortKey() -> sortable
+  transferGet() -> time.struct_time
+  ..
+  setActionColour(Colour colour)
+}
+
+timestamper_gui.basis.CellObjectStamp <|-- timestamper_gui.basis.CellObjectStampStat
+timestamper_gui.basis.CellObjectStampStat <|-- timestamper_gui.basis.CellObjectStampLocal
+timestamper_gui.basis.CellObjectStampStat <|-- timestamper_gui.basis.CellObjectStampGmt
+timestamper_gui.basis.CellObjectStamp <|-- timestamper_gui.basis.CellObjectStampLinux
+timestamper_gui.basis.CellObjectStamp <|-- timestamper_gui.basis.CellObjectStampWin
+timestamper_gui.basis.CellObjectStamp <|-- timestamper_gui.basis.CellObjectStampFname
+timestamper_gui.basis.CellObjectStamp <|-- timestamper_gui.basis.CellObjectStampDatafile
+
+'zerstoert das Layout
+'timestamper_gui.basis.CellObjectStampLinux "1" *-- "1" timestamper_gui.basis.CellObjectStampStat : is based on
+'timestamper_gui.basis.CellObjectStampWin   "1" *-- "1" timestamper_gui.basis.CellObjectStampStat : is based on
+
+@enduml

@@ -1,0 +1,83 @@
+@startuml classes-1-gui
+!pragma useIntermediatePackages false
+
+abstract timestamper_gui.basis.CellObject {
+  {method} ...
+}
+abstract timestamper_gui.basis.CellObjectProxy {
+  {method} ...
+}
+timestamper_gui.basis.CellObject <|-- timestamper_gui.basis.CellObjectProxy
+
+class timestamper_gui.basis.FileData {
+  {method} ...
+}
+
+class timestamper_gui.basis.DirectoryData {
+  {method} ...
+}
+
+'BAD LAYOUT +++
+'note "Modul basis.py" as N1
+'timestamper_gui.basis.DirectoryData .. N1
+
+class timestamper_gui.timestamper_gui.ColumnDescription {
+  name: string
+  heading: string
+  width: int
+  align: string
+  active: bool
+  isstamp: bool
+  proxyobj: CellObjectProxy
+  posttransfer: function
+}
+class timestamper_gui.timestamper_gui.StamperDirTable {
+  dirpath: string
+  sortcolIdx: int
+  sortReverse: bool
+  dirdata: DirectoryData
+  --
+  __init__(Widget parent)
+  GotoDirGrid(string dirpath, tuple sortIdxAndRev)
+  SortRefresh(tuple sortIdxAndRev)
+  ..
+  OnDoubleClick(Event event)
+  SortItems(int col, bool reverse)
+  OnLabelSortClick(Event event)
+  DeleteOutputs()
+  WriteMyFile()
+  ..
+  ActionAnalyse(ColumnDescription,ColumnDescription)
+  ActionColourise(ColumnDescription,ColumnDescription)
+  ActionTransfer(ColumnDescription,ColumnDescription)
+}
+class timestamper_gui.timestamper_gui.StamperWindow {
+  --
+  MainDataReset()
+  GotoDirMain(string dirpath)
+  ..
+  ButtAnalyse(Event event)
+  ButtColourise(Event event)
+  ButtTransfer(Event event)
+  ..
+  PathLineEnter(Event event)
+  Butt*(Event event) all button actions...
+}
+
+'layout trick to pull the basis.py way up the page
+timestamper_gui.timestamper_gui.StamperDirTable -[hidden]up-> timestamper_gui.basis.DirectoryData
+
+timestamper_gui.timestamper_gui.StamperWindow "1" *-- "1" timestamper_gui.timestamper_gui.StamperDirTable : contains
+timestamper_gui.timestamper_gui.StamperDirTable "1" *-- "1" timestamper_gui.basis.DirectoryData : is based on
+timestamper_gui.timestamper_gui.StamperDirTable "1" *-- "many" timestamper_gui.timestamper_gui.ColumnDescription : references
+
+timestamper_gui.timestamper_gui.ColumnDescription "1" *-- "1" timestamper_gui.basis.CellObjectProxy : chooses
+
+timestamper_gui.basis.DirectoryData "1" *-- "many" timestamper_gui.basis.FileData : contains
+timestamper_gui.basis.FileData "1" *-- "many" timestamper_gui.basis.CellObject : contains
+
+'hier keine Ableitungen
+'timestamper_gui.basis.CellObject <|-- timestamper_gui.basis.CellObjectDummy
+'timestamper_gui.basis.CellObject <|-- timestamper_gui.basis.CellObjectProxy
+'footer No Footer
+@enduml

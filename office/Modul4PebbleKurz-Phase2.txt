@@ -1,0 +1,28 @@
+﻿Das Tool "TIMESTAMPER" wird als GUI Programm realisiert,
+das über die Aufgabenstellung hinaus von Anfang an Multi-Plattform ist.
+Die Umsetzung erfolgt daher in Python auf Basis der GUI Library wxWidgets,
+die ein hervorragendes Widget für die zentrale Tabelle des Programms mitbringt.
+
+Das Programm ist in die 2 Module Basis und GUI (timestamper_gui.py) getrennt.
+Diese Art von Trennung der Präsentationsschicht von der Kernlogik
+ist weit verbreitet und soll hier zeitnah die Wiederverwendung
+in einer Kommandozeilen-Version erlauben.
+
+Die 2 Hauptklassen der GUI folgen notwendigerweise den Vorgaben von wxWidgets.
+Die Hauptklassen in der Basis sind wie anfangs im Datenmodell spezifiziert
+Directories -> Files -> Timestamps.
+
+Die komplette Aufbereitung der Daten für die Anzeige in der Tabelle
+übernehmen die Implementierungen der abstrakten Klasse CellObject.
+Hervorzuheben ist dabei die Klassenhierarchie unterhalb von CellObjectStamp,
+wo sich die komplexe Timestamp-Logik verbirgt.
+
+Ansonsten wurde die Spezifikation nicht nur vollständig umgesetzt,
+sondern sogar erweitert, weil sich beim Entwickeln der Bedarf
+nach 2 weiteren Operationen über "TRANSFER" hinaus gezeigt hat.
+Diese dienen der Analyse und Visualisierung von Unterschieden zwischen Timestamps.
+
+Zur Organisation: Aufgrund der strengeren Zeitschiene bei einer
+geförderten Weiterbildung bin ich leider gezwungen,
+diese Phase 2 ohne Feedback auf Phase 1 abzugeben.
+Änderungen an den 3 Dokumenten aus Phase 1 sind daher besonders markiert.

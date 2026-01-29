@@ -1,0 +1,51 @@
+@startuml classes-2-dirfile
+!pragma useIntermediatePackages false
+
+abstract timestamper_gui.basis.CellObject {
+  {method} ...
+}
+
+note "Root der CellObject class hierarchy" as N1
+timestamper_gui.basis.CellObject .. N1
+
+class timestamper_gui.basis.FileData {
+  mydir: DirectoryData
+  mydirentry: os.DirEntry
+  col_ts?_*: CellObjectStamp (Timestamp Columns)
+  col_*: any (other Columns)
+  --
+  getCellValue(string colname) -> string
+  ..
+  ChangeMark(int markmode)
+  SetOutput(data)
+  DelOutputs()
+  ..
+  colourfulStampCompare(time.struct_time,time.struct_time) -> tuple
+  ..
+  ActionAnalyse(ColumnDescription,ColumnDescription)
+  ActionColourise(ColumnDescription,ColumnDescription)
+  ActionTransfer(ColumnDescription,ColumnDescription)
+}
+
+class timestamper_gui.basis.DirectoryData {
+  dirpath: string
+  entries: list of FileData
+  fsutc: bool
+  dstnow: bool
+  has_mydatafile: bool
+  mydatafile_dict: dict
+  --
+  ReadFromInifile(string key, Any defvalue) -> Any
+  GotoDir(string dirpath)
+  ApplySort(string sortname, CellObjectProxy sortproxy, bool sortreverse)
+  ..
+  get_Entries*() : access functions for StamperDirTable
+  ..
+  readMyFile()
+  writeMyFile()
+}
+
+timestamper_gui.basis.DirectoryData "1" *-- "many" timestamper_gui.basis.FileData : contains
+timestamper_gui.basis.FileData "1" *-- "many" timestamper_gui.basis.CellObject : contains
+
+@enduml
