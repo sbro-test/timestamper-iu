@@ -1,0 +1,16 @@
+##DOCU 3 timestampmodes
+##timestampmode=utc
+##  newer Windows (NTFS,exFAT), Linux ext*, etc..
+##
+##timestampmode=local0
+##timestampmode=localdst
+##  both are FAT16/32 in localtime but with different in handling DST
+##  
+##  local0: OLD WINDOWS (up to XP)
+##    everything is in the STAMP, including DST +1 hour for summer files
+##  localdst: NEW WINDOWS (from Win7)
+##    STAMP is in local timezone but without DST offset
+
+timestampmode=utc
+
+##FILENAME should be .timestamper.mediaprefs

@@ -143,7 +143,7 @@ ColumnDescriptions_ALL = [
   #===== LINUX & WINDOWS STAMPS =====
     #2.LINUX would not need extra columns while running on linux
     #  as PYTHON ts1 == LINUX ts2 but running on Windows it does
-  ColumnDescription("ts2_linux",  "Linux",     stampwidthbig,  "R",None, True,  True, cobjProxyStamp, True),
+  ColumnDescription("ts2_linux",  "Linux?",    stampwidthsmall,"R",None, True,  True, cobjProxyStamp, True),
   
     #3.WINDOWS is worse than anticipated,
     #* old Windows will always apply the dst offset depending on the current time (eg. WINTER)
@@ -227,7 +227,8 @@ class StamperDirTable (wx.grid.Grid):
       return    #no Update, do not destroy the current list with nonsense
     
     #Update my data object =>
-    self.dirdata.GotoDir(self.dirpath)
+    error = self.dirdata.GotoDir(self.dirpath)
+    if error: LogMessageDialog(MSG_ERROR, error)
     
     for col,cd in enumerate(ColumnDescriptions):
       self.SetColSize(col,cd.width)
@@ -393,7 +394,8 @@ class StamperDirTable (wx.grid.Grid):
     self.SortRefresh(None)
   
   def WriteMyFile(self):
-    self.dirdata.writeMyFile()
+    error = self.dirdata.writeMyFile()
+    if error: LogMessageDialog(MSG_ERROR, error)
   
   def ActionAnalyse(self, coldesc1,coldesc2):
     self.DeleteOutputs()
@@ -417,8 +419,15 @@ class StamperDirTable (wx.grid.Grid):
     self.DeleteOutputs()
     
     fileiter = self.pickMarkIterator()
+    all = fail = 0
     for file in fileiter:
-      file.ActionTransfer(coldesc1,coldesc2)
+      all += 1
+      if not file.ActionTransfer(coldesc1,coldesc2):
+        fail += 1
+    
+    #new Error Handling: tell the user if some Transfers failed
+    if fail:
+      LogMessageDialog(MSG_ERROR, "%d/%d transfers failed." % (fail,all))
     
     #for the harmless OPS 1 and 2 SortRefresh was enough
     #the BIG TRANSFER needs more...
@@ -561,7 +570,7 @@ class StamperWindow (wx.Frame):
       os.chdir(dirpath)
       dirpath = os.path.abspath('.')
     
-    except FileNotFoundError:
+    except OSError:             ##FileNotFoundError, PermissionError, ...
       pass      #error display will come from grid
     
     #display the path
@@ -585,7 +594,7 @@ class StamperWindow (wx.Frame):
       return -1
     
     if len(cols)!=count:
-      LogMessageDialog(MSG_WARNG, "Need % (not %d) COLUMNS selected." % (count,len(cols)))
+      LogMessageDialog(MSG_WARNG, "Need %d (not %d) COLUMNS selected." % (count,len(cols)))
       return -1
     
     ##print ("@@GetColSize:",TableGrid.GetColSize(cols[0]))

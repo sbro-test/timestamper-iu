@@ -13,6 +13,7 @@ MYFILENAME_DATA = "timestamp-data.txt"
   #  a Formatstring for datetime.strptime
   #  this is 'simplified' ISO without Timezone
 DATA_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+DATA_TIMESTAMP_ERROR  = "__-__-__ __:__:__"
 
   #desired GUI representation for all timestamps
   #  currently like DATA file format DATA_TIMESTAMP_FORMAT
@@ -26,7 +27,9 @@ GUI_TIMESTAMP_DUMMY = ""		#just empty.
   ##  because the wx.Grid Widget has the same bindings
   ##  von Ctrl-Cursorkeys like Excel to jump to next full cell
 #GUI_TIMESTAMP_DUMMY = "---"
-#GUI_TIMESTAMP_DUMMY = "__-__-__ __:__:__"
+
+  #not for empty stamps but for errors
+GUI_TIMESTAMP_ERROR = "__-__-__ __:__:__"
 
   #desired GUI representation for Size in Bytes
   #  a format string for new style "FORMAT".format(value)
@@ -41,6 +44,10 @@ GUI_COLOUR_OTHER = (200,200,200)	#Other non-File: Grey
 
 GUI_COLOUR_MARK  = (255,160,255)	#Marker Col: Pink
 
+GUI_COLOUR_ERROR = (255,  0,  0)	#ALSO REAL RED
+
+  #the functions ANALYSE and COLOURISE use these "traffic light" colours
+  #to visualize "how big"/how severe a timestamp difference is
 GUI_COLOUR_SEVERITIES = {
   "0:equal":    (160,255,160),	#GREEN
   "1:fat":      (160,255,255),	#CYAN
@@ -48,4 +55,6 @@ GUI_COLOUR_SEVERITIES = {
   "3:dst":      (255,255,160),	#YELLOW
   "4:hours":    (255,210,160),	#ORANGE
   "5:diff":     (255,170,170),	#RED
+  
+  "9:ERROR":    (255,  0,  0),  #REAL RED
 }

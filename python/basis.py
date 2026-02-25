@@ -84,7 +84,7 @@ class CellObjectProxy (CellObject):
   """intermediate class to check for descendancy in the GUI
   
   PROXY CellObjects will be applied too many different simple values (ints,strings)
-    they do not store any values and require those to be supplied
+    they do not store any values and therefore require them to be supplied
     to the individual methods
   """
   pass
@@ -237,9 +237,15 @@ class CellObjectStamp (CellObject):
   def __init__(self):
     self.my_structtime = None           #set by subclasses !
     self.action_colour = None           #[possibly] set by ActionColourise
+    
+    self.errordisplay = (config.GUI_TIMESTAMP_ERROR, CellObject.colourMaker(config.GUI_COLOUR_ERROR))
   
   def getDisplay(self):
-    text = time.strftime( config.GUI_TIMESTAMP_FORMAT, self.my_structtime )
+    try:
+      text = time.strftime( config.GUI_TIMESTAMP_FORMAT, self.my_structtime )
+    except ValueError:
+      return self.errordisplay
+    
     if self.action_colour:
       return (text,self.action_colour)
     else:
@@ -279,26 +285,35 @@ class CellObjectStampStat (CellObjectStamp):
   #===== transferSet for Linux-style mtime
   def transferSet(self, inputstruct):
     #silently ignore if we are still trying to set ctime, forbidden in GUI
-    if self.statkey == "st_ctime": return
+    if self.statkey == "st_ctime": return False
     
     #set my struct, of course
     self.my_structtime = inputstruct
     
     #THE REAL CHANGE: but also push the mtime back to the filesystem!
     
-    #convert to mtime Integer
-    statint = self._struct2int(inputstruct)
-    teststruct = self._int2struct(statint)
-    DEBUGASSERT2STRUCTS("transferSet PY double check", "_struct2int-> _int2struct->", inputstruct[:6],teststruct[:6])
+    try:
+      #convert to mtime Integer
+      statint = self._struct2int(inputstruct)
+      teststruct = self._int2struct(statint)
+      DEBUGASSERT2STRUCTS("transferSet PY double check", "_struct2int-> _int2struct->", inputstruct[:6],teststruct[:6])
     
-    #SET DATE VALUES (%%internal: like in touchplus.py)
-    mystat = os.stat(self.fullpath)
-    os.utime(self.fullpath, (mystat.st_atime, statint) ) #keep atime, set new mtime !!
+      #SET DATE VALUES (%%internal: like in touchplus.py)
+      mystat = os.stat(self.fullpath)
+      os.utime(self.fullpath, (mystat.st_atime, statint) ) #keep atime, set new mtime !!
+      
+      #done. now check again
+      mystat = os.stat(self.fullpath)
+      teststruct = self._int2struct(mystat.st_mtime)
+      DEBUGASSERT2STRUCTS("transferSet PY triple check", "_struct2int-> _int2struct->", inputstruct[:6],teststruct[:6])
     
-    #done. now check again
-    mystat = os.stat(self.fullpath)
-    teststruct = self._int2struct(mystat.st_mtime)
-    DEBUGASSERT2STRUCTS("transferSet PY triple check", "_struct2int-> _int2struct->", inputstruct[:6],teststruct[:6])
+    except ValueError:  #_struct2int with error in the structure (month=13)
+      return False
+    except OSError:     #not allowed to Set new Time
+      return False
+    
+    else:
+      return True
   
   #===== CALLBACKS for the 2 subclasses to implement
   def _int2struct(self, statint):
@@ -318,6 +333,7 @@ class CellObjectStampLocal (CellObjectStampStat):
     return time.localtime(statint)
   
   def _struct2int(self, structtime):
+    ##time.mktime accepts everything, even month 13 in 1950
     return int(time.mktime(structtime))
 
 class CellObjectStampGmt (CellObjectStampStat):
@@ -330,6 +346,7 @@ class CellObjectStampGmt (CellObjectStampStat):
   
   def _struct2int(self, structtime):
     return int(calendar.timegm(structtime))
+    ##raises ValueError for month 13
 
 class CellObjectStampLinux (CellObjectStamp):
   """Linux View of Timestamps, equals Python View while running Linux,
@@ -337,11 +354,12 @@ class CellObjectStampLinux (CellObjectStamp):
     only needs to be a Wrapper Object when running Windows for FAT
   """
   
-  def __init__(self, fsutc,cellobj_local):
+  def __init__(self, fsutc,dstnow, cellobj_local):
     super().__init__()
     
     assert RUNNING_WIN,"No need for this Wrapper Class when running Linux, use cellobj_local above"
     assert not fsutc,"No need for this Wrapper Class on NTFS, use cellobj_local above"
+    self.dstnow = dstnow        ##FOR HOTFIX: are we on DST now ?
     
     #TS2 Linux is a small wrapper around TS1 Python CellObjects
     #similar to CellObjectStampWin, but simpler
@@ -358,10 +376,16 @@ class CellObjectStampLinux (CellObjectStamp):
     """
     
     #convert from and to local timestamps
+    ##time.mktime accepts everything, even month 13 in 1950
     timestamp = int(time.mktime( structtimeinput ))
     
     timestamp -= time.timezone * inversion
       ##FORWARD (inversion=+1): DE should add 1 hour, but time.timezone is -3600
+    
+    ##HOTFIX for test case "004.View.Sommer.Fat.WinNew"
+    ##  as it turns out, not only timezone but dst offset is applied
+    timestamp += 3600 * self.dstnow * inversion
+      ##FORWARD (inversion=+1): when in summer, add DST also
     
     return time.localtime(timestamp)
   
@@ -373,7 +397,7 @@ class CellObjectStampLinux (CellObjectStamp):
     DEBUGASSERT2STRUCTS("transferSet LINUX double check", "linux_onwin_fat-1-> linux_onwin_fat+1->", inputstruct[:6],teststruct[:6])
     
     #back to TS1 base timestamp
-    self.cellobj_local.transferSet(self.my_structtime)
+    return self.cellobj_local.transferSet(self.my_structtime)
 
 class CellObjectStampWin (CellObjectStamp):
   """Windows View of Timestamps, both old and new (switched with a flag)
@@ -462,20 +486,25 @@ class CellObjectStampWin (CellObjectStamp):
         
         else:
           #Old Windows from Localtime just like on NTFS below
+          ##time.mktime accepts everything, even month 13 in 1950
           timestamp = int(time.mktime( structtime_local ))
           timestamp = self.dst_plusFile_minusNow(timestamp, -inversion)
             #NORMALLY BACKWARD: -1 hour for File DST, +1 hour for Now DST
           retstruct = time.localtime(timestamp)
       
       else:
-        ##RUNNING_WIN: on LINUX the gmtime is very usefull
+        ##not RUNNING_WIN: on LINUX the gmtime is very useful
         ##  for getting the low level FAT timestamps
         
         if self.newwin:
           #mktime => localtime FAIL: this is for linux display,
           #does -1 and +2 for summer files in winter
           
-          timestamp = int(calendar.timegm( structtime_filesys ))
+          try:
+            timestamp = int(calendar.timegm( structtime_filesys ))
+          except ValueError:    #should not happen the struct made from os.stat is clean
+            timestamp = 0
+          
           ##DEBUG print ("\nNEWIN=",self.newwin)
           ##DEBUG DEBUGTIME(1,structtime_filesys)
           ##DEBUG DEBUGTIME(2,timestamp)
@@ -505,6 +534,7 @@ class CellObjectStampWin (CellObjectStamp):
       
       else:
         #code must be based on LOCAL, must not hard-wire OFFSET +1 for Germany
+        ##time.mktime accepts everything, even month 13 in 1950
         timestamp = int(time.mktime( structtime_local ))
         ##DEBUG print ("\nNEWIN=",self.newwin)
         ##DEBUG DEBUGTIME(1,structtime_local)
@@ -532,10 +562,10 @@ class CellObjectStampWin (CellObjectStamp):
     
     #back to gmt or local like in the constructor...
     if not self.fsutc:          #filesystem in LOCALTIME (FAT)
-      self.cellobj_filesys.transferSet(self.my_structtime)
+      return self.cellobj_filesys.transferSet(self.my_structtime)
     
     else:                       #local times (currently Germany, winter)
-      self.cellobj_local.transferSet(self.my_structtime)
+      return self.cellobj_local.transferSet(self.my_structtime)
 
 _RESTR_NUM6_PURE  = "([0-9]{2})([0-9]{2})([0-9]{2})"
 _RESTR_NUM6_MINUS = "([0-9]{2})-([0-9]{2})-([0-9]{2})"
@@ -589,8 +619,15 @@ class CellObjectStampFname (CellObjectStamp):
     """
     
     grps = (int(x) for x in grps)       #convert to int
-    dt = datetime.datetime(*grps)       #convert to datetime
-    self.my_structtime = dt.timetuple() #convert to time.struct_time
+
+    try:
+      dt = datetime.datetime(*grps)     #convert to datetime
+      self.my_structtime = dt.timetuple() #convert to time.struct_time
+    
+    except ValueError:                  #filenames can have wrong dates 2025-13-38
+      raise ValueError("NO-TIMESTAMP")  #like it wasn't there
+    
+    ##DEBUG EVIL: self.my_structtime = time.struct_time((1950, 13, 30, 8, 51, 8, 4, 30, 0))
     ##DEBUG print (self.my_structtime)
     ##DEBUG print (time.strftime( "%Y-%m-%d %H:%M:%S", my_structtime ))
   
@@ -609,9 +646,12 @@ class CellObjectStampDatafile (CellObjectStamp):
     super().__init__()
     
     if datafilestamp:           #NORMAL MODE
-      #@@@ERROR HANDLING in Phase 3 ...
-      tstruct = time.strptime(datafilestamp, config.DATA_TIMESTAMP_FORMAT)
-      self.my_structtime = tstruct
+      try:
+        tstruct = time.strptime(datafilestamp, config.DATA_TIMESTAMP_FORMAT)
+        self.my_structtime = tstruct
+      
+      except ValueError:        #wrong date in my data file, error means dummy mode...
+        self.my_structtime = None
     
     else:                       #DUMMY MODE
       self.my_structtime = None
@@ -621,7 +661,10 @@ class CellObjectStampDatafile (CellObjectStamp):
     #may be None through DUMMY MODE !
     if not self.my_structtime: return None
     
-    return time.strftime( config.DATA_TIMESTAMP_FORMAT, self.my_structtime )
+    try:
+      return time.strftime( config.DATA_TIMESTAMP_FORMAT, self.my_structtime )
+    except ValueError:
+      return config.DATA_TIMESTAMP_ERROR
 
   ##DOCU: for transferSet to go to proper CellObjectStampDatafile,
   ##  the Column col_ts5_datafile must never use Dummies,
@@ -642,6 +685,7 @@ class CellObjectStampDatafile (CellObjectStamp):
   def transferSet(self, inputstruct):
     #really easy :-) this terminates a possible DUMMY MODE, we have data now
     self.my_structtime = inputstruct
+    return True         #no failure here
 
 
 #----------------------------------------------------------------------
@@ -653,6 +697,12 @@ TYP_COLOURMAP = {
   'D':config.GUI_COLOUR_DIR,
   'x':config.GUI_COLOUR_OTHER,
 }
+
+#for cases where the call to os.stat goes wrong
+class _fakeStat:
+  st_size  = 0
+  st_mtime = 0
+  st_ctime = 0
 
 class FileData:
   #this RE is the rule for what column names are considered timestamps,
@@ -709,7 +759,11 @@ class FileData:
       self.col_ftype = 'F'
       self.col_extn  = os.path.splitext(fname)[1].lower()
       
-      mystat = os_direntry.stat()
+      try:
+        mystat = os_direntry.stat()
+      except OSError:                   #weird, stat calls should not fail once I can list the directory...
+        mystat = _fakeStat
+      
       self.col_bytes = mystat.st_size
       
       if fname==config.MYFILENAME_DATA: #how should we list our very own datafile ?
@@ -725,7 +779,7 @@ class FileData:
           #ismyfile=True: special case: do not assert but fill the gaps
       
       else:                             #all other files
-        #----- TIMESTAMP(s) 1: LINUX -----
+        #----- TIMESTAMP(s) 1: PYTHON mtime/ctime -----
         #even THE FIRST TIMESTAMP start off with 4 possible columns
         #  * SOURCE: mtime or ctime (for test purposes)
         #  * TIMEZONE: Local or GMT (for test purposes)
@@ -750,7 +804,7 @@ class FileData:
         
         if RUNNING_WIN:
           if not mydir.fsutc:
-            self.col_ts2_linux = CellObjectStampLinux(mydir.fsutc, self.col_ts1_modloc)
+            self.col_ts2_linux = CellObjectStampLinux(mydir.fsutc,mydir.dstnow, self.col_ts1_modloc)
             ##only FAT running on WIN need to be wrapped,
             ##localtime in TS1 is still the base
         
@@ -873,8 +927,15 @@ class FileData:
     FEWSECONDS_DELTA = 20
     
     #convert to datetime to use the modern delta functionality
-    dt1 = datetime.datetime(*structtime1[:6])
-    dt2 = datetime.datetime(*structtime2[:6])
+    try:
+      dt1 = datetime.datetime(*structtime1[:6])
+      dt2 = datetime.datetime(*structtime2[:6])
+    
+    except ValueError:          #datetime construction will fail for month 13
+      severity = "9:ERROR"
+      colour   = self.myseveritycolours[severity]
+      return (severity, colour, -1)
+    
     delta_dt  = dt1-dt2
     delta_sec = int( delta_dt.total_seconds() )
     
@@ -995,7 +1056,7 @@ class FileData:
     if not structtime1: return
     
     #no DUMMIES allowed in the TARGET COL, would raise NotImplementedError
-    stampobj2.transferSet(structtime1)
+    return stampobj2.transferSet(structtime1)
 
 class DirectoryData:
   """The DIRECTORY currently displayed in the main GRID
@@ -1050,15 +1111,19 @@ class DirectoryData:
         dirpath = newdirpath
       
       #ini file found, read it
-      with open(inipath,"rt") as inifile:
-        for line in inifile:
-          #strip spaces, ignore empty lines and comments
-          line = line.strip()
-          if not line: continue
-          if line[0]=='#': continue
-          
-          key,value = line.split('=')
-          self.inidict[key]=value
+      try:
+        with open(inipath,"rt") as inifile:
+          for line in inifile:
+            #strip spaces, ignore empty lines and comments
+            line = line.strip()
+            if not line: continue
+            if line[0]=='#': continue
+            
+            key,value = line.split('=')
+            self.inidict[key]=value
+      
+      except OSError:   #cant read my own INI
+        pass            #inidict remains {}, no need to try again
     
     #with the inidict ready, just get the value
     return self.inidict.get(key, defvalue)
@@ -1082,7 +1147,7 @@ class DirectoryData:
     assert self.dstnow in [0,1], "time.localtime() needs to contain DST information, but is %r" % self.dstnow
     
     #the MAIN DIR Object handles my datafiles inside the dir
-    self.readMyFile()
+    errormessage = self.readMyFile()
     
     ##LATER: possible optimisation
     ##  when Updating the list while staying in the same DIR very little 
@@ -1093,10 +1158,18 @@ class DirectoryData:
     self.entries = []
     
     #GET ALL DIRECTORY CONTENTS, full os.stat for all entries
-    with os.scandir(dirpath) as it:
-      #list comprehension: every os.DirEntry object becomes a FileData object
-      #  (the constructor will ask me for his entry in self.mydatafile_dict)
-      self.entries = [FileData(self, entry) for entry in it]
+    try:
+      with os.scandir(dirpath) as it:
+        #list comprehension: every os.DirEntry object becomes a FileData object
+        #  (the constructor will ask me for his entry in self.mydatafile_dict)
+        self.entries = [FileData(self, entry) for entry in it]
+    
+    except OSError as ex:               #no access to my own directory
+      #overrides the message for reading INI
+      errormessage = "GotoDir fails: %s" % str(ex)
+        ##FUTURE: maybe the big table should show a red error line ?
+    
+    return errormessage
   
   def ApplySort(self, sortname,sortproxy,sortreverse):
     #2.APPLY SORT ORDER
@@ -1163,16 +1236,25 @@ class DirectoryData:
     if exists:
       #read with newline=None: universal newlines are default in PY3,
       #  we always write \n but maybe a windows editor messed it up
-      with open(mydatafname, "rt", encoding="utf8") as mydatafile:
-        for line in mydatafile:
-          line = line.strip()
-          if not line: continue         #empty lines (from outside editing...)
-          if line[0]=='#': continue     #ignore our comment, this is for different files formats in the future
-          
-          timestamp, filename = line.split('\t')
-          
-          #just store it and give it to the FileData objects later
-          self.mydatafile_dict[filename] = timestamp
+      try:
+        with open(mydatafname, "rt", encoding="utf8") as mydatafile:
+          for line in mydatafile:
+            line = line.strip()
+            if not line: continue         #empty lines (from outside editing...)
+            if line[0]=='#': continue     #ignore our comment, this is for different files formats in the future
+            
+            timestamp, filename = line.split('\t')
+            
+            #just store it and give it to the FileData objects later
+            self.mydatafile_dict[filename] = timestamp
+      
+      except OSError as ex:     #can't read my own datafile
+        ##mydatafile_dict remains {}
+        
+        return "cannot read my datafile: %s" % str(ex)
+          ##FUTURE: maybe this could make the line for my datafile red ?
+    
+    return None         #OK, no message
   
   def writeMyFile(self):
     ##NO NEED for the old self.mydatafile...
@@ -1185,17 +1267,23 @@ class DirectoryData:
     #always write with UNIX line endings;
     #  Windows line endings are accepted but never written,
     #  this means less source code differences when crossing platforms
-    with open(mydatafname, "wt", encoding="utf8", newline='\n') as mydatafile:
-      #header comment, fixed to this version
-      mydatafile.write("#timestamper data file, fileversion 0.1\n")
-      
-      for entry in sortedentries:
-        #the STAMP that will be written to the file is exactly the TS5/stamp in datafile column
-        stamp = entry.getTs5DatafileStamp()
+    try:
+      with open(mydatafname, "wt", encoding="utf8", newline='\n') as mydatafile:
+        #header comment, fixed to this version
+        mydatafile.write("#timestamper data file, fileversion 0.1\n")
         
-        #Dummies and Stamp-Proxies will return None for "nothing"
-        if stamp:
-          line = "%s\t%s\n" % (stamp, entry.getName())
-          mydatafile.write(line)
+        for entry in sortedentries:
+          #the STAMP that will be written to the file is exactly the TS5/stamp in datafile column
+          stamp = entry.getTs5DatafileStamp()
+          
+          #Dummies and Stamp-Proxies will return None for "nothing"
+          if stamp:
+            line = "%s\t%s\n" % (stamp, entry.getName())
+            mydatafile.write(line)
+    
+    except OSError as ex:       #cant write my own data file
+      return "cannot write my datafile: %s" % str(ex)
+      ##cant help it, after update the column will be as before
     
     self.has_mydatafile = "New"         #member not used yet
+    return None         #OK, no message
