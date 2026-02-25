@@ -10,6 +10,9 @@
   `uml`
   : PlantUML Sourcen und PNG-Outputs als Basis für Office
 
+  `testdata`
+  : Vorgaben und Screenshots fuer die Testfaelle
+
 ## INSTALLATION UND START
   * entwickelt auf Linux (Debian11), getestet auf Windows7 und Windows10
   
